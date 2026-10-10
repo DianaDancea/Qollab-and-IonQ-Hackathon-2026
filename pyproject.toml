@@ -1,0 +1,21 @@
+# Local tooling only (uv, non-package project). Nothing here ships to Qollab.
+[project]
+name = "complementarity-console"
+version = "0.1.0"
+description = "A synth where each overtone is a one-qubit Mach-Zehnder interferometer."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    # TODO: re-pin to the version Qollab's runtime reports (see README).
+    "qiskit==2.5.2",
+    "numpy>=2.5.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+package = false
