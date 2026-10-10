@@ -9,6 +9,8 @@ Only qiskit and numpy are imported here: this file runs in Pyodide on Qollab.
 The backend is always passed in by the caller and never created here.
 """
 
+import json
+
 import numpy as np
 from qiskit import QuantumCircuit, transpile
 
@@ -113,9 +115,10 @@ def p1_by_marker(counts):
 def run_sweep(backend, n_points=13, shots=1000, theta=0.0, mode="plain"):
     """Sweep phi over [0, 2*pi] with ONE backend.run call for all phases.
 
-    Returns one dict per phase with phi, measured, expected. In eraser mode
-    each dict also has the marker-sorted results (p1_m0, p1_m1, n_m0, n_m1)
-    and their theory (expected_m0, expected_m1), which assumes theta = pi/2.
+    Returns a JSON string: a list of records, one per phase, with phi,
+    measured, expected. Eraser-mode records also have the marker-sorted
+    results (measured_p1_m0/m1, measured_n_m0/m1) and their theory
+    (expected_m0/m1, which assumes theta = pi/2); other modes omit them.
     """
     _check_mode(mode)
     phis = np.linspace(0.0, 2 * np.pi, n_points)
@@ -131,9 +134,14 @@ def run_sweep(backend, n_points=13, shots=1000, theta=0.0, mode="plain"):
             "measured": p1_from_counts(counts, shots),
             "expected": expected_p1(phi, theta, mode),
         }
+        # The marker split only means something in eraser mode.
         if mode == "eraser":
-            row.update(p1_by_marker(counts))
+            by_marker = p1_by_marker(counts)
+            row["measured_p1_m0"] = by_marker["p1_m0"]
+            row["measured_p1_m1"] = by_marker["p1_m1"]
+            row["measured_n_m0"] = by_marker["n_m0"]
+            row["measured_n_m1"] = by_marker["n_m1"]
             row["expected_m0"] = expected_p1_given_marker(phi, 0)
             row["expected_m1"] = expected_p1_given_marker(phi, 1)
         rows.append(row)
-    return rows
+    return json.dumps(rows)
