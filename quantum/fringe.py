@@ -65,14 +65,10 @@ def expected_p1(phi, theta=0.0, mode="plain"):
     return float(0.5 * (1 - np.cos(theta) * np.cos(phi)))
 
 
-def expected_p1_given_marker(phi, marker_bit):
-    """Eraser theory at theta = pi/2: P(qubit 0 = 1 | marker reads marker_bit)."""
-    if marker_bit == 0:
-        return float(np.sin(phi / 2) ** 2)
-    if marker_bit == 1:
-        return float(np.cos(phi / 2) ** 2)
-    raise ValueError(f"marker_bit must be 0 or 1, got {marker_bit!r}")
-
+def expected_p1_given_marker(phi, marker_bit, theta=np.pi / 2):
+    k = np.cos(theta) + (-1) ** marker_bit * np.sin(theta)
+    return float((1 + k**2 - 2 * k * np.cos(phi)) / (2 * (1 + k**2)))
+    
 
 def _bits(key):
     # Count keys may contain spaces between classical registers.
@@ -141,7 +137,7 @@ def run_sweep(backend, n_points=13, shots=1000, theta=0.0, mode="plain"):
             row["measured_p1_m1"] = by_marker["p1_m1"]
             row["measured_n_m0"] = by_marker["n_m0"]
             row["measured_n_m1"] = by_marker["n_m1"]
-            row["expected_m0"] = expected_p1_given_marker(phi, 0)
-            row["expected_m1"] = expected_p1_given_marker(phi, 1)
+            row["expected_m0"] = expected_p1_given_marker(phi, 0, theta)
+            row["expected_m1"] = expected_p1_given_marker(phi, 1, theta)
         rows.append(row)
-    return json.dumps(rows)
+    return json.dumps({"mode": mode, "theta": float(theta), "shots": shots, "rows": rows})
