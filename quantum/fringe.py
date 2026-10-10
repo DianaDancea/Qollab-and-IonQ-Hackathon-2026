@@ -66,6 +66,8 @@ def expected_p1(phi, theta=0.0, mode="plain"):
 
 
 def expected_p1_given_marker(phi, marker_bit, theta=np.pi / 2):
+    if marker_bit not in (0, 1):
+        raise ValueError(f"marker_bit must be 0 or 1, got {marker_bit!r}")
     k = np.cos(theta) + (-1) ** marker_bit * np.sin(theta)
     return float((1 + k**2 - 2 * k * np.cos(phi)) / (2 * (1 + k**2)))
     
