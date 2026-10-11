@@ -1,12 +1,11 @@
-"""Quantum Music: hear complementarity. Qollab runs main() with the Run settings form.
+"""Quantum Music. Qollab calls main() with the values from the Run settings form.
 
-Each overtone of a tone is a one-qubit Mach-Zehnder interferometer, and the
-measured P(1) is its volume. The marker qubit (crossfader theta) records which
-path was taken; the more it knows, the flatter every fringe and the stiller the
-sound. The quantum eraser sorts the same shots by the marker bit and the
-moving sound comes back, as two voices in antiphase.
+Each overtone's volume is the measured P(1) of its own one-qubit interferometer.
+A marker qubit (crossfader theta) can record which path the qubit took. The more
+it knows, the flatter the pattern and the stiller the sound. The eraser splits
+the same shots by the marker result, and each half can move again.
 
-The whole run is ONE backend.run call, as IonQ's simulators require.
+The whole run is one backend.run call, because IonQ allows only one job per run.
 """
 
 import numpy as np
@@ -23,9 +22,9 @@ from quantum.synth import (
 )
 
 VOICE_NAMES = {
-    "mixed": "all shots (marker ignored)",
-    "m0": "eraser, marker = 0",
-    "m1": "eraser, marker = 1",
+    "mixed": "All shots",
+    "m0": "Marker read 0",
+    "m1": "Marker read 1",
 }
 MAX_CIRCUITS = 400  # frames * overtones; keeps an IonQ simulator run reasonable
 BARS = " ▁▂▃▄▅▆▇█"
@@ -46,8 +45,11 @@ def _bar(levels):
 
 
 def _print_voice(name, levels):
-    """The text form of the sound: one line per frame, one column per overtone."""
-    print(f"\n{VOICE_NAMES[name]}: P(1) in % per overtone (columns 1..{levels.shape[1]})")
+    """The sound as text: one row per frame, one column per overtone."""
+    print(
+        f"\n{VOICE_NAMES[name]}: volume of each overtone in %, one row per frame "
+        f"(overtones 1 to {levels.shape[1]}, left to right)"
+    )
     for i, row in enumerate(levels):
         cells = " ".join("  -" if np.isnan(x) else f"{100 * x:3.0f}" for x in row)
         print(f"  frame {i + 1:2d} | {cells} | {_bar(row)}")
@@ -64,25 +66,25 @@ def _offer_file(name, data):
         return
     try:
         sendFile(name)
-        print(f"  {name}: in the console above ({len(data) // 1024} KB)")
+        print(f"  {name} is in the console above ({len(data) // 1024} KB)")
     except Exception as err:  # noqa: BLE001  (a JS error must not lose the results)
-        print(f"  {name}: saved, but the console could not take it ({err})")
+        print(f"  {name} was saved, but the console couldn't show it ({err})")
 
 
 def main(shots: int = 1000, theta_deg: float = 90.0, mode: str = "eraser", frames: int = 8):
     mode = mode.strip().lower()
     if mode not in MODES:
-        print(f"mode must be one of {', '.join(MODES)}; got {mode!r}. Using eraser.")
+        print(f"Unknown mode {mode!r}. Use plain, marker or eraser. Running eraser instead.")
         mode = "eraser"
     shots = max(1, int(shots))
     frames = min(max(3, int(frames)), MAX_CIRCUITS // N_OVERTONES)
     theta = np.radians(theta_deg)
 
-    print("Quantum Music: each overtone is a Mach-Zehnder interferometer, volume = P(1).")
-    crossfader = "" if mode == "plain" else f", crossfader theta = {theta_deg:g} deg"
+    print("Quantum Music: each overtone's volume is the P(1) of its own small interferometer.")
+    crossfader = "" if mode == "plain" else f", crossfader theta = {theta_deg:g} degrees"
     print(
-        f"mode = {mode}{crossfader}, {frames} frames x {N_OVERTONES} overtones = "
-        f"{frames * N_OVERTONES} circuits, {shots} shots each, in one job."
+        f"Mode: {mode}{crossfader}. Running {frames * N_OVERTONES} circuits "
+        f"({frames} frames x {N_OVERTONES} overtones), {shots} shots each, as one job."
     )
 
     spectrum = measure_spectrum(_backend(), frames, theta, mode, shots)
@@ -91,26 +93,28 @@ def main(shots: int = 1000, theta_deg: float = 90.0, mode: str = "eraser", frame
     for name, levels in played.items():
         _print_voice(name, levels)
 
-    print("\nHow much the sound moves: fringe visibility V (1 = full sweep, 0 = still tone)")
+    print("\nHow much each voice moves. V = 1 is a full sweep, V = 0 means the tone holds still.")
     theory = {"mixed": "expected_mixed", "m0": "expected_m0", "m1": "expected_m1"}
     for name, levels in played.items():
         got = fringe_visibility(levels, spectrum["phi"])
         want = fringe_visibility(spectrum[theory[name]], spectrum["phi"])
-        print(f"  {VOICE_NAMES[name]:28s} V = {got:.2f} (theory {want:.2f})")
+        print(f"  {VOICE_NAMES[name]:14s} V = {got:.2f}  (theory says {want:.2f})")
     if mode != "plain":
         v = fringe_visibility(spectrum["mixed"], spectrum["phi"])
         k = abs(np.sin(theta))
         print(
-            f"  Which-path knowledge K = |sin(theta)| = {k:.2f}. Complementarity: "
-            f"V^2 + K^2 = {v**2 + k**2:.2f} (theory 1)."
+            f"  The marker's knowledge of the path is K = {k:.2f}. "
+            f"For all shots, V² + K² = {v**2 + k**2:.2f} (theory says 1)."
         )
     if mode == "eraser":
         print(
-            "  The eraser reads the marker in a basis that cannot tell the paths apart. "
-            "At theta = 90 deg both halves move fully again, in antiphase; at any theta "
-            "the halves add back to the unsorted tone."
+            "  Splitting the shots by the marker result can bring the movement back. "
+            "At theta = 90 degrees both halves move fully, in opposite directions. "
+            "Put back together, the two halves always give the all-shots tone."
         )
 
-    print(f"\nAudio: {F0:g} Hz tone, {frames * FRAME_SECONDS:.1f} s per voice, 16-bit WAV")
+    print(
+        f"\nSound: a {F0:g} Hz tone, {frames * FRAME_SECONDS:.1f} seconds per voice, as WAV files"
+    )
     for name, levels in played.items():
         _offer_file(f"quantum_music_{mode}_{name}.wav", render_wav(levels))

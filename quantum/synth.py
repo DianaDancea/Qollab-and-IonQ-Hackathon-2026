@@ -1,16 +1,17 @@
-"""Turn interferometer fringes into sound: one fringe per overtone.
+"""Turn interference patterns into sound, one pattern per overtone.
 
 Overtone k (frequency k * F0) has its own interferometer with phase
-phi_k = k * spread + sweep, and its volume is the measured P(1). Across the
-overtones that samples a fringe, so the spectrum is comb-shaped, the shape a
-phaser pedal makes. Moving `sweep` from frame to frame slides the comb, and
-that slide is what you hear.
+phi_k = k * spread + sweep, and plays at volume P(1). Read across the
+overtones, the volumes go up and down like a wave, much like the notches a
+phaser pedal puts in a sound. Each frame moves the sweep along, and you hear
+the pattern slide.
 
-The marker qubit is the crossfader. At theta = 0 every overtone keeps its full
-fringe and the phaser sweeps. At theta = pi/2 the marker knows the path, every
-fringe flattens to 1/2 and the sweep goes silent: the tone stops moving. The
-eraser sorts the same shots by the marker bit into two voices whose combs are
-in antiphase; each sweeps again, and together they add back to the flat tone.
+The marker qubit is the crossfader. At theta = 0 nothing records the path,
+the patterns are full size and the sound moves. At theta = pi/2 the marker
+knows the path, every overtone sits at 1/2 and the sound stops moving. The
+eraser splits the same shots by the marker result into two voices that are
+opposites of each other: each one moves, and together they average back to the
+still tone.
 
 Only numpy, qiskit (through fringe.py) and the standard library are used, so
 this runs in Pyodide on Qollab. Every frame and overtone goes into ONE

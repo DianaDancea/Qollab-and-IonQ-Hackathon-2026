@@ -1,70 +1,68 @@
 # Quantum Music
 
-A synth where every overtone is a quantum interferometer. Each overtone's volume is the measured P(1) of a one-qubit Mach-Zehnder interferometer, so the timbre of the tone is an interference pattern you can hear. A second "marker" qubit records which path was taken, and a crossfader θ sets how much it knows: the more it knows, the flatter every fringe and the stiller the sound. A quantum eraser (reading the marker in the X basis and sorting the shots by the marker bit) brings the moving sound back, as two voices in antiphase.
+Quantum Music is a synth whose sound comes from quantum interference. The tone has six overtones, and each overtone gets its own tiny interferometer: one qubit, sent through H, a phase gate P(φ) and H again, then measured. The chance of reading 1 is sin²(φ/2), and that number is the overtone's volume.
+
+A second qubit, the "marker", can keep a record of which path the first qubit took. A crossfader, θ, sets how good that record is. The better the record, the weaker the interference, and the less the sound moves. Then a quantum eraser brings the movement back without running anything new. It only sorts the shots you already have.
 
 Demo video: (link to come)
 
-Built for the Qollab x IonQ hackathon, Quantum Playground track.
+Made for the Qollab x IonQ hackathon, Quantum Playground track.
 
-## What it shows
+## What you'll hear
 
-Wave-particle complementarity, made audible. Interference only happens when nothing records which path was taken. In this synth, interference is what moves the sound, so you can hear the which-path record kill it.
+Quantum physics doesn't let you have it both ways: once something records which path a particle took, its interference pattern goes away. In this synth the interference pattern is what makes the sound move, so you can hear it go.
 
-- **Plain (θ unused):** each overtone k has phase φ_k = k · spread + sweep, so the spectrum is a comb of fringes (the shape a phaser pedal makes), and the sweep slides it. You hear a phaser.
-- **Marker:** the marker qubit is entangled with the path by a controlled-RY(2θ). The fringe visibility drops to V = cos θ, while the which-path knowledge is K = sin θ, so V² + K² = 1. At θ = 90° every overtone sits at 1/2 and the tone stops moving.
-- **Eraser:** the same circuit, with the marker read in the X basis. Ignoring the marker bit, it sounds exactly like marker mode (at θ = 90°, a still tone). Sorting the very same shots by the marker bit gives two voices whose combs are in antiphase (sin²(φ/2) and cos²(φ/2) at θ = 90°). Each one moves again, and together they add back to the still tone. Erasing never changes the data, only how you sort it.
+There are three modes.
 
-Every run measures V for every voice, prints it next to theory, and checks V² + K² = 1 from the data.
+In `plain` mode there is no marker. Each overtone's phase is a little ahead of the one below it, so the six volumes trace out a wave pattern (loud, quiet, loud). Every frame the phases shift and the pattern slides along, which sounds a lot like a phaser pedal. θ does nothing in this mode.
+
+In `marker` mode the marker qubit is switched on. A controlled rotation (CRY by 2θ) copies path information onto it. The pattern flattens: its visibility V drops to cos θ, while the marker's knowledge of the path, K, rises to sin θ, and V² + K² stays at 1. At θ = 90° the marker knows the path exactly, every overtone sits at 50%, and the tone holds still.
+
+In `eraser` mode the circuit is the same, but the marker gets an extra H gate before it's measured, so its result can no longer tell the two paths apart. If you ignore the marker result, nothing changes and you hear the same thing as marker mode. If you split the shots into two piles by the marker result, each pile has its own moving pattern. At θ = 90° the two piles are exact opposites (sin²(φ/2) and cos²(φ/2)), so together they average out to the flat, still tone. The data never changed, only the way it was sorted.
+
+After every run the console prints V for each voice next to what theory predicts, and checks V² + K² = 1 using the measured numbers.
 
 ## How to run it
 
-1. Open this page in Chrome, Edge, Brave, Opera or Firefox 153+. Safari and iPhone/iPad cannot run Qollab projects.
-2. Press **Run on Qollab** (top right). No sign-in is needed for the free local simulators.
-3. Under **Run settings**, keep the defaults or change them: **shots** per circuit (1000), **theta_deg**, the crossfader in degrees (0 = no marker, 90 = full which-path record), **mode** (`plain`, `marker` or `eraser`) and **frames**, the number of sweep steps (8, at 0.3 s each).
+1. Open this page in Chrome, Edge, Brave, Opera or Firefox 153 or newer. Safari, iPhone and iPad can't run Qollab projects.
+2. Press **Run on Qollab** (top right). You don't need to sign in to use the free local simulators.
+3. In **Run settings**, keep the defaults or change them. `shots` is how many times each circuit runs (1000). `theta_deg` is the crossfader in degrees: 0 means no marker, 90 means the marker knows the path exactly (90). `mode` is `plain`, `marker` or `eraser` (`eraser`). `frames` is how many steps the sweep takes, at 0.3 s each (8).
 4. Pick **Built-in simulator (24q)** under *Locally Run Simulators* and press **Run**.
-5. The console prints, for each voice, a table of P(1) per overtone per frame, with a bar graph of the spectrum. Then it prints the measured visibility V of each voice next to theory, and V² + K². Last come the WAV files, one per voice.
-6. To use IonQ's simulator, run again and pick an IonQ simulator under *Remotely Run Simulators*. The project sends exactly one job per run (all frames and overtones in one `backend.run`). IonQ's noise simulation is slower with more shots, so try **shots** = 200 and **frames** = 6 there, and compare V with the ideal run.
+5. The console shows one table per voice. Each row is a frame, each column is an overtone, and the numbers are volumes in percent, with a small bar chart at the end of the row. Below the tables you get V for each voice and the V² + K² check, and then one WAV file per voice.
+6. To try IonQ's simulator, run again and pick an IonQ simulator under *Remotely Run Simulators*. The whole run is a single job, which is what IonQ allows. IonQ's simulator adds noise and slows down with more shots, so try `shots` = 200 and `frames` = 6, and see how V compares with the noise-free run.
 
-Try this sequence: `plain`, then `marker` at θ = 45 and 90, then `eraser` at 90. Listen to the three eraser files back to back.
+A good order to try: `plain`, then `marker` at θ = 45 and θ = 90, then `eraser` at 90. Play the three eraser files one after another. The "mixed" one holds still and the other two move.
 
 ## How it works
 
-| concept | circuit | what you hear |
-|---|---|---|
-| Interference | H, P(φ), H, measure on the path qubit; P(1) = sin²(φ/2) | an overtone's volume |
-| A timbre | one interferometer per overtone k, φ_k = k · spread + sweep | a comb-shaped spectrum |
-| Movement | the sweep advances every frame | a phaser sweep |
-| Which-path record | CRY(2θ) from the path qubit onto the marker | the sweep fades as θ grows |
-| Quantum eraser | H on the marker before measuring, shots sorted by the marker bit | two moving voices in antiphase |
+Each overtone at each frame is one small circuit, with one qubit in plain mode and two when there's a marker. Overtone k has phase φ = k × 60° + sweep, and the sweep goes once round the circle over the frames. With 8 frames and 6 overtones that's 48 circuits. They all go to the simulator in one `backend.run` call, because IonQ accepts only one job per run.
 
-The volume of overtone k is P(1) / k (the 1/k roll-off of a plucked string), interpolated between frames so nothing clicks. Visibility is fitted per overtone by least squares (P = a − c cos φ − s sin φ, V = √(c² + s²) / a), so it does not depend on a frame landing on the exact peak.
+The measured P(1) becomes volume. Overtone k plays at P(1)/k, so higher overtones are a bit quieter, as on a plucked string, and the volume is blended smoothly from one frame to the next so there are no clicks.
 
-Everything goes into one job: frames × overtones circuits (48 by default), each with 1 or 2 qubits, in a single `backend.run`. IonQ backends allow only one job per run.
+To get V, the program fits the curve a − c·cos φ − s·sin φ to each overtone's volumes and takes V = √(c² + s²) / a. Using a fit means no frame has to land exactly on the loudest or quietest point.
 
-Files:
+The code is in four files:
 
-- `main.py`: the entry point Qollab runs (`main()` and its Run settings form).
-- `quantum/fringe.py`: the interferometer circuits, the closed-form theory, and the one-job phase sweep.
-- `quantum/synth.py`: the overtone grid, the one-job spectrum measurement, visibility, the WAV renderer and a JSON export.
-- `quantum/checks.py`: exact (statevector) and shot-based checks; `run_all(backend)` runs them all.
+- `main.py` is what Qollab runs. It reads the Run settings, runs the job and prints the results.
+- `quantum/fringe.py` builds the circuits, holds the theory formulas, and runs a list of phases as one job.
+- `quantum/synth.py` lays out the overtones and frames, works out V, writes the WAV files, and can export the numbers as JSON.
+- `quantum/checks.py` has the tests. `run_all(backend)` runs all of them.
 
 ## What's new here
 
-We claim a **novel application context** and an **original educational contribution**. Complementarity and the quantum eraser are usually shown as one fringe on a plot. Here they are a playable synthesizer parameter: the crossfader is literally which-path knowledge, and the eraser is a way of sorting shots that turns one still tone into two moving ones. Each run also measures the complementarity relation V² + K² = 1 from its own data.
+Complementarity and the quantum eraser are usually shown as a single curve on a plot. Here they are controls on an instrument: the crossfader is the amount of which-path information, and the eraser is a way of sorting shots that turns one still tone into two moving ones. In the hackathon's terms, we claim a novel application context and an educational contribution. Each run also tests V² + K² = 1 on its own data.
 
 ## Make it yours
 
-- `quantum/synth.py`: `F0` (the pitch), `N_OVERTONES`, `SPREAD` (the comb spacing, i.e. the timbre), `FRAME_SECONDS` and `SAMPLE_RATE`.
-- `main.py`: the Run settings defaults in the `main(...)` signature, and `MAX_CIRCUITS`.
-- `quantum/synth.py` `spectrum_json(...)` returns the measured spectrum as JSON, ready for a Web Audio front end.
+The sound settings are at the top of `quantum/synth.py`: `F0` (the pitch, 220 Hz), `N_OVERTONES` (6), `SPREAD` (the phase step between overtones, which changes the timbre), `FRAME_SECONDS` and `SAMPLE_RATE`. The default Run settings are in the `main(...)` line of `main.py`, and `MAX_CIRCUITS` there caps how big one job can get. For a web front end, `spectrum_json(...)` in `quantum/synth.py` returns the measured volumes as JSON, ready for Web Audio.
 
 ## Built during the hackathon / prior work
 
-Nothing existed before the build window: all code in this repository was written during it (first commit 2026-10-09 21:56 ET; see the git history). It uses only Qiskit, NumPy and the Python standard library.
+Nothing here existed before the build window. All the code was written during it, and the first commit is from 2026-10-09 at 21:56 ET (see the git history). The only libraries used are Qiskit, NumPy and the Python standard library.
 
 ## Accessibility
 
-Every sound has a text alternative: the console prints each voice's spectrum as numbers (P(1) in %, per overtone and frame) with a bar graph beside them, and states the visibility of each voice in words and numbers. Nothing depends on colour. The settings are Qollab's own Run settings form; the project adds no custom controls. Audio is optional: the physics can be read entirely from the text.
+You don't need to hear the sound to follow the project. Every voice is also printed as numbers (the volume of each overtone in each frame, in percent) with a bar chart next to them, and V is given as a number with a one-line explanation. Nothing depends on colour. The settings use Qollab's own Run settings form, and the project adds no custom controls.
 
 ## Local development
 
