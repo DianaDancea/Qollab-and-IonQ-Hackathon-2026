@@ -70,7 +70,7 @@ def expected_p1_given_marker(phi, marker_bit, theta=np.pi / 2):
         raise ValueError(f"marker_bit must be 0 or 1, got {marker_bit!r}")
     k = np.cos(theta) + (-1) ** marker_bit * np.sin(theta)
     return float((1 + k**2 - 2 * k * np.cos(phi)) / (2 * (1 + k**2)))
-    
+
 
 def _bits(key):
     # Count keys may contain spaces between classical registers.
@@ -113,10 +113,10 @@ def p1_by_marker(counts):
 def run_sweep(backend, n_points=13, shots=1000, theta=0.0, mode="plain"):
     """Sweep phi over [0, 2*pi] with ONE backend.run call for all phases.
 
-    Returns a JSON string: a list of records, one per phase, with phi,
-    measured, expected. Eraser-mode records also have the marker-sorted
+    Returns a JSON string: {"mode", "theta", "shots", "rows"}, where rows is
+    a list of records, one per phase, with phi, measured, expected. Eraser-mode records also have the marker-sorted
     results (measured_p1_m0/m1, measured_n_m0/m1) and their theory
-    (expected_m0/m1, which assumes theta = pi/2); other modes omit them.
+    (expected_m0/m1, evaluated at this theta); other modes omit them.
     """
     _check_mode(mode)
     phis = np.linspace(0.0, 2 * np.pi, n_points)
@@ -142,4 +142,6 @@ def run_sweep(backend, n_points=13, shots=1000, theta=0.0, mode="plain"):
             row["expected_m0"] = expected_p1_given_marker(phi, 0, theta)
             row["expected_m1"] = expected_p1_given_marker(phi, 1, theta)
         rows.append(row)
-    return json.dumps({"mode": mode, "theta": float(theta), "shots": shots, "rows": rows})
+    return json.dumps(
+        {"mode": mode, "theta": float(theta), "shots": shots, "rows": rows}
+    )

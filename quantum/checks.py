@@ -17,7 +17,6 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
 
 from .fringe import (
-    MODES,
     expected_p1,
     expected_p1_given_marker,
     fringe_circuit,
@@ -110,7 +109,10 @@ def test_duality_relation():
 def test_unsorted_eraser_matches_marker():
     for theta in THETAS:
         for phi in PHIS:
-            assert abs(exact_p1(phi, theta, "eraser") - exact_p1(phi, theta, "marker")) < EXACT_TOL
+            assert (
+                abs(exact_p1(phi, theta, "eraser") - exact_p1(phi, theta, "marker"))
+                < EXACT_TOL
+            )
 
 
 def test_eraser_sorted_fringes_at_full_marker():
@@ -176,8 +178,11 @@ def test_p1_by_marker_empty_subset():
 
 
 def test_bad_mode_and_marker_bit_raise():
-    for bad in (lambda: fringe_circuit(0.0, 0.0, "nope"), lambda: expected_p1(0.0, 0.0, "nope"),
-                lambda: expected_p1_given_marker(0.0, 2)):
+    for bad in (
+        lambda: fringe_circuit(0.0, 0.0, "nope"),
+        lambda: expected_p1(0.0, 0.0, "nope"),
+        lambda: expected_p1_given_marker(0.0, 2),
+    ):
         try:
             bad()
         except ValueError:
@@ -199,8 +204,15 @@ def test_shots_match_theory(backend=None, shots=4000):
         from qiskit.providers.basic_provider import BasicSimulator
 
         backend = BasicSimulator()
-    for mode, theta in (("plain", 0.0), ("marker", pi / 4), ("marker", pi / 2), ("eraser", pi / 2)):
-        rows = _rows(run_sweep(backend, n_points=13, shots=shots, theta=theta, mode=mode))
+    for mode, theta in (
+        ("plain", 0.0),
+        ("marker", pi / 4),
+        ("marker", pi / 2),
+        ("eraser", pi / 2),
+    ):
+        rows = _rows(
+            run_sweep(backend, n_points=13, shots=shots, theta=theta, mode=mode)
+        )
         assert len(rows) == 13
         for row in rows:
             assert abs(row["measured"] - row["expected"]) < SHOT_TOL, (mode, theta, row)
@@ -209,13 +221,19 @@ def test_shots_match_theory(backend=None, shots=4000):
                     n = row[f"measured_n_m{m}"]
                     if n >= 200:  # skip tiny subsets; tolerance is 4 sigma for n shots
                         tol = 4 * (0.25 / n) ** 0.5
-                        assert abs(row[f"measured_p1_m{m}"] - row[f"expected_m{m}"]) < tol, row
+                        assert (
+                            abs(row[f"measured_p1_m{m}"] - row[f"expected_m{m}"]) < tol
+                        ), row
 
 
 def run_all(backend=None):
     """Run every check; return a message for the Self-check button."""
     for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and name != "test_shots_match_theory" and callable(fn):
+        if (
+            name.startswith("test_")
+            and name != "test_shots_match_theory"
+            and callable(fn)
+        ):
             fn()
     test_shots_match_theory(backend)
     return "all checks passed"
