@@ -111,15 +111,7 @@ def p1_by_marker(counts):
 
 
 def run_phases(backend, phis, shots=1000, theta=0.0, mode="plain"):
-    """Measure P(1) at each phase in phis with ONE backend.run call.
-
-    Returns a list of records, one per phase, with phi, measured, expected.
-    Eraser-mode records also have the marker-sorted results
-    (measured_p1_m0/m1, measured_n_m0/m1) and their theory (expected_m0/m1,
-    evaluated at this theta); other modes omit them.
-
-    One call per run matters on IonQ: a second backend.run stops the run.
-    """
+    """Measure P(1) at each phase, one backend.run (IonQ allows one per run)."""
     _check_mode(mode)
     phis = [float(phi) for phi in phis]
     circuits = [fringe_circuit(phi, theta, mode) for phi in phis]

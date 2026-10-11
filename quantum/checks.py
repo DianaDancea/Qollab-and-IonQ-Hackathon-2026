@@ -209,7 +209,7 @@ def test_phase_grid_shape_and_range():
 
 
 def test_visibility_of_theory_follows_crossfader():
-    phis = phase_grid(4)  # the fit needs no frame at the exact peak or dip
+    phis = phase_grid(4)
     for theta in THETAS:
         levels = np.vectorize(lambda phi, t=theta: expected_p1(phi, t, "marker"))(phis)
         assert abs(fringe_visibility(levels, phis) - np.cos(theta)) < EXACT_TOL
@@ -264,7 +264,7 @@ def test_shots_match_theory(backend=None, shots=4000):
 
 
 class _CountingBackend:
-    """Wraps a backend and counts backend.run calls (IonQ allows one per run)."""
+    """Counts backend.run calls."""
 
     def __init__(self, backend):
         self.backend = backend
