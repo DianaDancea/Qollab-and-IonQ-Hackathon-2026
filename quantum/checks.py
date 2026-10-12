@@ -1,4 +1,4 @@
-"""Checks for quantum/fringe.py: exact (statevector) and statistical (shots).
+"""Checks for quantum/fringe.py and quantum/synth.py: exact and statistical.
 
 The exact tests have no randomness and pin the physics: they compare the
 circuits' exact probabilities to the closed-form theory. The shot tests check
@@ -9,7 +9,9 @@ Run locally from the project root:  python -m pytest quantum/checks.py
 On Qollab, the Self-check button calls run_all(backend).
 """
 
+import io
 import json
+import wave
 from math import pi
 
 import numpy as np
@@ -17,13 +19,22 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
 
 from .fringe import (
-    MODES,
     expected_p1,
     expected_p1_given_marker,
     fringe_circuit,
     p1_by_marker,
     p1_from_counts,
     run_sweep,
+)
+from .synth import (
+    FRAME_SECONDS,
+    N_OVERTONES,
+    SAMPLE_RATE,
+    fringe_visibility,
+    measure_spectrum,
+    phase_grid,
+    render_wav,
+    spectrum_json,
 )
 
 PHIS = [2 * pi * k / 12 for k in range(13)]
@@ -176,13 +187,48 @@ def test_p1_by_marker_empty_subset():
 
 
 def test_bad_mode_and_marker_bit_raise():
-    for bad in (lambda: fringe_circuit(0.0, 0.0, "nope"), lambda: expected_p1(0.0, 0.0, "nope"),
-                lambda: expected_p1_given_marker(0.0, 2)):
+    for bad in (
+        lambda: fringe_circuit(0.0, 0.0, "nope"),
+        lambda: expected_p1(0.0, 0.0, "nope"),
+        lambda: expected_p1_given_marker(0.0, 2),
+    ):
         try:
             bad()
         except ValueError:
             continue
         raise AssertionError("expected ValueError")
+
+
+# ---------- synth tests (no simulator needed) ----------
+
+
+def test_phase_grid_shape_and_range():
+    phis = phase_grid(8)
+    assert phis.shape == (8, N_OVERTONES)
+    assert phis.min() >= 0.0 and phis.max() < 2 * pi
+
+
+def test_visibility_of_theory_follows_crossfader():
+    phis = phase_grid(4)
+    for theta in THETAS:
+        levels = np.vectorize(lambda phi, t=theta: expected_p1(phi, t, "marker"))(phis)
+        assert abs(fringe_visibility(levels, phis) - np.cos(theta)) < EXACT_TOL
+
+
+def test_render_wav_is_valid_and_silent_at_zero():
+    for levels in (np.zeros((4, N_OVERTONES)), np.full((4, N_OVERTONES), 0.5)):
+        with wave.open(io.BytesIO(render_wav(levels))) as wav:
+            assert wav.getnchannels() == 1 and wav.getsampwidth() == 2
+            assert wav.getframerate() == SAMPLE_RATE
+            assert wav.getnframes() == round(4 * FRAME_SECONDS * SAMPLE_RATE)
+            pcm = np.frombuffer(wav.readframes(wav.getnframes()), dtype="<i2")
+        loud = np.abs(pcm).max()
+        assert loud == 0 if not levels.any() else 0 < loud < 32767
+
+
+def test_render_wav_treats_nan_as_silence():
+    with wave.open(io.BytesIO(render_wav(np.full((3, N_OVERTONES), np.nan)))) as wav:
+        assert not np.frombuffer(wav.readframes(wav.getnframes()), dtype="<i2").any()
 
 
 # ---------- statistical test (shots on a backend) ----------
@@ -199,7 +245,12 @@ def test_shots_match_theory(backend=None, shots=4000):
         from qiskit.providers.basic_provider import BasicSimulator
 
         backend = BasicSimulator()
-    for mode, theta in (("plain", 0.0), ("marker", pi / 4), ("marker", pi / 2), ("eraser", pi / 2)):
+    for mode, theta in (
+        ("plain", 0.0),
+        ("marker", pi / 4),
+        ("marker", pi / 2),
+        ("eraser", pi / 2),
+    ):
         rows = _rows(run_sweep(backend, n_points=13, shots=shots, theta=theta, mode=mode))
         assert len(rows) == 13
         for row in rows:
@@ -212,10 +263,45 @@ def test_shots_match_theory(backend=None, shots=4000):
                         assert abs(row[f"measured_p1_m{m}"] - row[f"expected_m{m}"]) < tol, row
 
 
+class _CountingBackend:
+    """Counts backend.run calls."""
+
+    def __init__(self, backend):
+        self.backend = backend
+        self.runs = 0
+
+    def __getattr__(self, name):
+        return getattr(self.backend, name)
+
+    def run(self, *args, **kwargs):
+        self.runs += 1
+        return self.backend.run(*args, **kwargs)
+
+
+def test_spectrum_is_one_job_and_matches_theory(backend=None, shots=4000):
+    if backend is None:
+        from qiskit.providers.basic_provider import BasicSimulator
+
+        backend = BasicSimulator()
+    counting = _CountingBackend(backend)
+    spectrum = measure_spectrum(counting, n_frames=4, theta=pi / 2, mode="eraser", shots=shots)
+    assert counting.runs == 1
+    assert spectrum["mixed"].shape == (4, N_OVERTONES)
+    assert np.abs(spectrum["mixed"] - spectrum["expected_mixed"]).max() < SHOT_TOL
+    for m in ("m0", "m1"):
+        tol = 4 * (0.25 / spectrum[f"n_{m}"].min()) ** 0.5
+        assert np.abs(spectrum[m] - spectrum[f"expected_{m}"]).max() < tol
+    assert len(json.loads(spectrum_json(spectrum))["m0"]) == 4
+
+
+SHOT_TESTS = ("test_shots_match_theory", "test_spectrum_is_one_job_and_matches_theory")
+
+
 def run_all(backend=None):
     """Run every check; return a message for the Self-check button."""
     for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and name != "test_shots_match_theory" and callable(fn):
+        if name.startswith("test_") and name not in SHOT_TESTS and callable(fn):
             fn()
-    test_shots_match_theory(backend)
+    for name in SHOT_TESTS:
+        globals()[name](backend)
     return "all checks passed"
